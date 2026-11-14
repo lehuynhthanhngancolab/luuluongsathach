@@ -1,0 +1,2256 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phần mềm Xuất Lưu Lượng Sát Hạch Hàng Tháng (PDF → Excel)</title>
+  <!-- Thư viện xử lý PDF, Excel, Word và OCR nội bộ -->
+  <script src="libs/pdf.worker.min.js"></script>
+  <script src="libs/pdf.min.js"></script>
+  <script src="libs/exceljs.min.js"></script>
+  <script src="libs/mammoth.browser.min.js"></script>
+  <script src="libs/tesseract.min.js"></script>
+  <script src="libs/presets.js?v=2"></script>
+  <style>
+    :root {
+      --primary: #1d4ed8;
+      --primary-hover: #1e40af;
+      --primary-light: #eff6ff;
+      --success: #15803d;
+      --success-hover: #166534;
+      --success-light: #f0fdf4;
+      --warning: #b45309;
+      --warning-light: #fffbeb;
+      --danger: #b91c1c;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #cbd5e1;
+      --text: #0f172a;
+      --text-muted: #475569;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding-bottom: 40px;
+    }
+
+    /* Header */
+    .app-header {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
+      color: #fff;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+    }
+
+    .app-header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .app-header p {
+      font-size: 13px;
+      opacity: 0.9;
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 20px auto;
+      padding: 0 20px;
+    }
+
+    /* Grid Top Section */
+    .top-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1.4fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    @media (max-width: 1100px) {
+      .top-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    /* Upload Zone */
+    .upload-zone {
+      border: 2px dashed #93c5fd;
+      background: var(--primary-light);
+      border-radius: 10px;
+      padding: 24px 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--primary);
+      background: #dbeafe;
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-icon {
+      font-size: 34px;
+      margin-bottom: 6px;
+    }
+
+    .upload-main-text {
+      font-weight: 600;
+      color: var(--primary);
+      font-size: 15px;
+    }
+
+    .upload-sub-text {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Controls & Filters */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-group label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .form-control {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13.5px;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+    }
+
+    .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.15);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 9px 15px;
+      border-radius: 7px;
+      font-size: 13.5px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+      font-size: 14.5px;
+      padding: 10px 20px;
+      box-shadow: 0 2px 6px rgba(21, 128, 61, 0.25);
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background: var(--success-hover);
+    }
+
+    .btn-outline {
+      background: #fff;
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .btn-outline:hover:not(:disabled) {
+      background: #f1f5f9;
+    }
+
+    .btn-warning {
+      background: #f59e0b;
+      color: #fff;
+    }
+
+    .btn-warning:hover:not(:disabled) {
+      background: #d97706;
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 12.5px;
+    }
+
+    /* Status & Summary Bar */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      background: #fff;
+      border: 1px solid var(--border);
+    }
+
+    .stats-badges {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      padding: 5px 11px;
+      border-radius: 20px;
+      font-size: 12.5px;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: var(--text);
+      border: 1px solid #e2e8f0;
+    }
+
+    .badge.blue {
+      background: var(--primary-light);
+      color: var(--primary);
+      border-color: #bfdbfe;
+    }
+
+    .badge.green {
+      background: var(--success-light);
+      color: var(--success);
+      border-color: #bbf7d0;
+    }
+
+    .badge.amber {
+      background: var(--warning-light);
+      color: var(--warning);
+      border-color: #fde68a;
+    }
+
+    /* Progress Bar for OCR */
+    .progress-wrap {
+      display: none;
+      margin-top: 10px;
+      background: #e2e8f0;
+      border-radius: 6px;
+      overflow: hidden;
+      height: 22px;
+      position: relative;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #2563eb, #3b82f6);
+      width: 0%;
+      transition: width 0.2s;
+    }
+
+    .progress-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    /* Tabs */
+    .tabs-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 14px;
+    }
+
+    .tab-buttons {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      padding: 10px 18px;
+      font-size: 13.5px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      background: #e2e8f0;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: -2px;
+    }
+
+    .tab-btn.active {
+      background: #fff;
+      color: var(--primary);
+      border-color: var(--border);
+      border-bottom: 2px solid #fff;
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* Table Container */
+    .table-scroll {
+      overflow: auto;
+      max-height: 68vh;
+      border: 1px solid #94a3b8;
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    table.excel-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 14px;
+    }
+
+    table.excel-table th,
+    table.excel-table td {
+      border: 1px solid #64748b;
+      padding: 6px 8px;
+      vertical-align: middle;
+    }
+
+    table.excel-table thead th {
+      position: sticky;
+      top: 0;
+      background: #f1f5f9;
+      z-index: 10;
+      font-weight: 700;
+      text-align: center;
+      box-shadow: 0 1px 0 #64748b;
+    }
+
+    table.excel-table tr:hover td {
+      background-color: #f8fafc;
+    }
+
+    .cell-editable {
+      outline: none;
+      min-height: 24px;
+      white-space: pre-wrap;
+    }
+
+    .cell-editable:focus {
+      background-color: #fef9c3 !important;
+      box-shadow: inset 0 0 0 2px #2563eb;
+    }
+
+    .row-summary-top td {
+      background: #fef3c7 !important;
+      font-weight: 700;
+      text-align: center;
+      font-size: 15px;
+    }
+
+    .row-summary-bottom td {
+      background: #dcfce7 !important;
+      font-weight: 700;
+      text-align: center;
+      font-size: 15px;
+    }
+
+    .parsed-preview-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .pill {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: #e0f2fe;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+    }
+
+    .pill.auto {
+      background: #f0fdf4;
+      color: #15803d;
+      border-color: #86efac;
+    }
+
+    .pill.shared {
+      background: #fffbeb;
+      color: #b45309;
+      border-color: #fde68a;
+    }
+
+    .pill.skip {
+      background: #f1f5f9;
+      color: #64748b;
+      border-color: #cbd5e1;
+      text-decoration: line-through;
+    }
+
+    /* PDF Preview Canvas List */
+    .pdf-preview-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      max-height: 68vh;
+      overflow: auto;
+      background: #334155;
+      padding: 16px;
+      border-radius: 6px;
+    }
+
+    .pdf-page-canvas {
+      max-width: 100%;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+      background: #fff;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-state h3 {
+      font-size: 17px;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+
+  <header class="app-header">
+    <div>
+      <h1>📊 Phần Mềm Xuất Lưu Lượng Sát Hạch Lái Xe Hàng Tháng</h1>
+      <p>Tải lên file PDF Lịch sát hạch (văn bản hoặc bản scan) / Excel / Word → Xem trước & Chỉnh sửa → Xuất file Excel chuẩn mẫu 3 Sheet</p>
+    </div>
+    <div class="header-actions">
+      <button id="btnForceOcr" class="btn btn-warning" style="display:none;" onclick="runOcrOnCurrentPdf()">
+        🔍 Nhận diện lại bằng OCR (Bản Scan)
+      </button>
+      <button id="btnExportExcel" class="btn btn-success" disabled onclick="exportToExcel()">
+        📥 Xuất File Excel (.xlsx) Chuẩn Mẫu
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="top-grid">
+      <!-- Cột 1: Upload File -->
+      <div class="card">
+        <div class="card-title">
+          <span>1. Chọn hoặc Kéo thả File Lịch Sát Hạch</span>
+          <span id="fileLoadedLabel" style="font-size:12px; color:var(--primary); font-weight:600;"></span>
+        </div>
+        <div id="dropZone" class="upload-zone">
+          <input type="file" id="fileInput" accept=".pdf,.xlsx,.xls,.docx" onchange="handleFileSelect(event)" />
+          <div class="upload-icon">📄</div>
+          <div class="upload-main-text">Nhấn để chọn file hoặc kéo thả file PDF vào đây</div>
+          <div class="upload-sub-text">Hỗ trợ: File PDF Lịch sát hạch (.pdf văn bản & bản scan), File Excel (.xlsx), File Word (.docx)</div>
+        </div>
+        <div style="margin-top:10px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Nạp nhanh file PDF có sẵn:</span>
+          <button class="btn btn-outline btn-sm" onclick="loadPreset('t2')">📂 T2.2026</button>
+          <button class="btn btn-outline btn-sm" onclick="loadPreset('t3')">📂 T3.2026</button>
+          <button class="btn btn-outline btn-sm" onclick="loadPreset('t4')">📂 T4.2026</button>
+          <button class="btn btn-outline btn-sm" onclick="loadPreset('t5')">📂 T5.2026</button>
+          <button class="btn btn-outline btn-sm" onclick="loadPreset('t6')">📂 T6.2026</button>
+          <button class="btn btn-outline btn-sm" onclick="loadPreset('t7')">📂 T7.2026 (Đ)</button>
+          <button class="btn btn-outline btn-sm" onclick="loadPreset('t8')" style="border-color:var(--primary); color:var(--primary);">📂 T8.2026 (Điều chỉnh)</button>
+          <button class="btn btn-outline btn-sm" onclick="loadPreset('t9')">📂 T9.2026</button>
+          <button class="btn btn-outline btn-sm" onclick="loadPreset('t10')">📂 T10.2026 (3KV)</button>
+          <button class="btn btn-outline btn-sm" onclick="loadPreset('t11')">📂 T11.2026</button>
+        </div>
+        <div id="ocrProgressWrap" class="progress-wrap">
+          <div id="ocrProgressBar" class="progress-bar"></div>
+          <div id="ocrProgressLabel" class="progress-label">Đang xử lý...</div>
+        </div>
+      </div>
+
+      <!-- Cột 2: Cấu hình & Bộ lọc -->
+      <div class="card">
+        <div class="card-title">
+          <span>2. Thiết lập Bộ lọc & Thông tin Xuất File Excel</span>
+          <button class="btn btn-outline btn-sm" onclick="recalculateAll()">🔄 Cập nhật bảng tổng hợp</button>
+        </div>
+        <div class="controls-grid">
+          <div class="form-group">
+            <label for="inpTitle">Tiêu đề bảng tổng hợp (Sheet 2 & 3):</label>
+            <input type="text" id="inpTitle" class="form-control" value="DANH SÁCH SÁT HẠCH THÁNG 2" oninput="updateTitles()" />
+          </div>
+          <div class="form-group">
+            <label for="inpFileName">Tên file Excel khi tải về:</label>
+            <input type="text" id="inpFileName" class="form-control" value="DS SÁT HẠCH T2.2026.xlsx" />
+          </div>
+          <div class="form-group">
+            <label for="selHangFilter">Lọc theo Hạng xe sát hạch:</label>
+            <select id="selHangFilter" class="form-control" onchange="applyRawFilters()">
+              <option value="OTO" selected>Chỉ hạng Ô tô (B, C1, C, D2, D, CE...)</option>
+              <option value="MOTO">Chỉ hạng Mô tô (A1, A)</option>
+              <option value="ALL">Tất cả các hạng (Ô tô + Mô tô)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="selKhuVucFilter">Lọc theo Khu vực:</label>
+            <select id="selKhuVucFilter" class="form-control" onchange="applyRawFilters()">
+              <option value="ALL" selected>Tất cả khu vực (TT, 1, 2, 3...)</option>
+              <option value="TT">Chỉ Khu vực TT (TP.HCM)</option>
+              <option value="1">Chỉ Khu vực 1</option>
+              <option value="2">Chỉ Khu vực 2</option>
+              <option value="3">Chỉ Khu vực 3</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="selDateColMode">Cột ngày (khi file có 2 cột ngày như T8):</label>
+            <select id="selDateColMode" class="form-control" onchange="applyRawFilters()">
+              <option value="CHUYEN" selected>Ngày chuyển (Cột ngày 2)</option>
+              <option value="DU_KIEN">Ngày sát hạch dự kiến T8 (Cột ngày 1)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="selNoQtyRule">Phương án xử lý CSĐT không ghi số riêng (trong ô nhiều CSĐT):</label>
+            <select id="selNoQtyRule" class="form-control" onchange="recalculateAll()">
+              <option value="REMAINDER_FIRST" selected>Phương án 1 (Khuyên dùng): Giữ đủ CSĐT — Tính số còn lại cho CSĐT đầu, CSĐT cùng đợt ghi "(Chung đợt)"</option>
+              <option value="SPLIT_EVEN">Phương án 2: Giữ đủ CSĐT — Chia đều số lượng còn lại của đợt cho các CSĐT chưa ghi số</option>
+              <option value="GROUP_NAME">Phương án 3: Gộp chung tên các CSĐT cùng đợt (CSĐT 1 + CSĐT 2) với số lượng còn lại</option>
+              <option value="KEEP_DUPLICATE">Phương án 4: Giữ đủ CSĐT — Điền nguyên tổng số lượng đợt vào từng CSĐT</option>
+              <option value="SKIP">Phương án 5 (Cũ): Bỏ qua dòng CSĐT không ghi số riêng</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="inpSheet1Name">Tên Sheet 1 (Lịch gốc):</label>
+            <input type="text" id="inpSheet1Name" class="form-control" value="Hạng B,C" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Thanh trạng thái & Thống kê nhanh -->
+    <div class="status-bar">
+      <div class="stats-badges">
+        <span class="badge blue" id="statRawRows">Lịch gốc (Hạng B,C): 0 dòng</span>
+        <span class="badge green" id="statExpandedRows">Dòng CSĐT tổng hợp: 0 dòng</span>
+        <span class="badge amber" id="statCenters">Trung tâm SH: 0</span>
+        <span class="badge" id="statCsdts">Số CSĐT: 0</span>
+        <span class="badge green" id="statTotalQty">Tổng lưu lượng dự kiến: 0</span>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="addScheduleRow()">➕ Thêm dòng lịch sát hạch</button>
+        <button class="btn btn-outline btn-sm" onclick="renumberStt()">🔢 Đánh lại Số TT</button>
+      </div>
+    </div>
+
+    <!-- Khu vực Tabs Xem trước & Chỉnh sửa -->
+    <div class="card">
+      <div class="tabs-header">
+        <div class="tab-buttons">
+          <button class="tab-btn active" onclick="switchTab('tab1', this)">
+            📋 Sheet 1: Hạng B,C (Lịch Sát Hạch & Chỉnh sửa)
+          </button>
+          <button class="tab-btn" onclick="switchTab('tab2', this)">
+            📊 Sheet 2: TONG_HOP_MAU_MOI (Theo CSĐT × Trung tâm SH)
+          </button>
+          <button class="tab-btn" onclick="switchTab('tab3', this)">
+            📈 Sheet 3: TONG_HOP_MAU_MOI_2 (Theo Trung tâm SH × CSĐT)
+          </button>
+          <button class="tab-btn" onclick="switchTab('tabPdf', this)" id="tabBtnPdf" style="display:none;">
+            👁️ Xem File PDF Gốc
+          </button>
+        </div>
+        <div style="font-size:12.5px; color:var(--text-muted);">
+          💡 <em>Mẹo: Bạn có thể nhấp trực tiếp vào bất kỳ ô nào trong bảng để sửa nội dung trước khi xuất Excel.</em>
+        </div>
+      </div>
+
+      <!-- TAB 1: Hạng B,C -->
+      <div id="tab1" class="tab-pane active">
+        <div id="tab1Content" class="table-scroll">
+          <div class="empty-state">
+            <h3>Chưa có dữ liệu lịch sát hạch</h3>
+            <p>Hãy tải lên file PDF Lịch sát hạch hàng tháng (hoặc file Excel/Word) ở khung phía trên để bắt đầu.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: TONG_HOP_MAU_MOI -->
+      <div id="tab2" class="tab-pane">
+        <div id="tab2Content" class="table-scroll">
+          <div class="empty-state">
+            <h3>Chưa có dữ liệu tổng hợp</h3>
+            <p>Dữ liệu tổng hợp theo CSĐT × Trung tâm sát hạch sẽ tự động hiển thị tại đây.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: TONG_HOP_MAU_MOI_2 -->
+      <div id="tab3" class="tab-pane">
+        <div id="tab3Content" class="table-scroll">
+          <div class="empty-state">
+            <h3>Chưa có dữ liệu tổng hợp 2</h3>
+            <p>Dữ liệu tổng hợp theo Trung tâm sát hạch × CSĐT sẽ tự động hiển thị tại đây.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: Xem PDF Gốc -->
+      <div id="tabPdf" class="tab-pane">
+        <div id="pdfPreviewList" class="pdf-preview-container"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // =========================================================================
+    // TRẠNG THÁI DỮ LIỆU TOÀN CỤC
+    // =========================================================================
+    let allExtractedPdfRows = []; // Toàn bộ dòng đọc từ PDF (bao gồm cả A1, A, B, C...)
+    let scheduleRows = [];        // Dữ liệu Sheet 1 (Hạng B,C): [{ stt, ngay, csdt, ttsh, khuVuc, soLuongHang }]
+    let matrix1Data = null;       // Dữ liệu đã tính cho Sheet 2 (TONG_HOP_MAU_MOI)
+    let matrix2Data = null;       // Dữ liệu đã tính cho Sheet 3 (TONG_HOP_MAU_MOI_2)
+    let currentPdfBuffer = null;  // Lưu ArrayBuffer của PDF hiện tại để chạy OCR hoặc render trang
+
+    // Kéo thả file
+    const dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processUploadedFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) processUploadedFile(file);
+    }
+
+    function switchTab(tabId, btnEl) {
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      if (btnEl) btnEl.classList.add('active');
+    }
+
+    // =========================================================================
+    // XỬ LÝ TẢI FILE (PDF / EXCEL / WORD)
+    // =========================================================================
+    async function processUploadedFile(file) {
+      document.getElementById('fileLoadedLabel').textContent = `Đã tải: ${file.name}`;
+      const ext = file.name.split('.').pop().toLowerCase();
+
+      // Tự động đoán tháng/năm từ tên file trước
+      detectMonthYearFromText(file.name);
+
+      try {
+        if (ext === 'pdf') {
+          const arrayBuffer = await file.arrayBuffer();
+          currentPdfBuffer = arrayBuffer.slice(0);
+          document.getElementById('btnForceOcr').style.display = 'inline-flex';
+          document.getElementById('tabBtnPdf').style.display = 'inline-flex';
+          await parsePdfArrayBuffer(arrayBuffer);
+        } else if (ext === 'xlsx' || ext === 'xls') {
+          document.getElementById('btnForceOcr').style.display = 'none';
+          document.getElementById('tabBtnPdf').style.display = 'none';
+          await parseExcelFile(file);
+        } else if (ext === 'docx') {
+          document.getElementById('btnForceOcr').style.display = 'none';
+          document.getElementById('tabBtnPdf').style.display = 'none';
+          await parseWordFile(file);
+        } else {
+          alert('Định dạng file chưa được hỗ trợ. Vui lòng chọn file .pdf, .xlsx hoặc .docx');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Có lỗi khi đọc file: ' + (err.message || err));
+      }
+    }
+
+    function detectMonthYearFromText(text) {
+      // Tìm tháng và năm từ chuỗi văn bản hoặc tên file
+      const m1 = text.match(/tháng\s*0?(\d{1,2})\s*năm\s*(\d{4})/i);
+      const m2 = text.match(/T(\d{1,2})[._\-/](\d{4})/i);
+      const m3 = text.match(/tháng\s*0?(\d{1,2})/i);
+      let month = null, year = '2026';
+      if (m1) {
+        month = parseInt(m1[1], 10);
+        year = m1[2];
+      } else if (m2) {
+        month = parseInt(m2[1], 10);
+        year = m2[2];
+      } else if (m3) {
+        month = parseInt(m3[1], 10);
+      }
+      if (month && month >= 1 && month <= 12) {
+        document.getElementById('inpTitle').value = `DANH SÁCH SÁT HẠCH THÁNG ${month}`;
+        document.getElementById('inpFileName').value = `DS SÁT HẠCH T${month}.${year}.xlsx`;
+      }
+    }
+
+    // =========================================================================
+    // BỘ ĐỌC PDF CHÍNH XÁC CAO (VECTOR GRID + TEXT COORDINATES + OCR FALLBACK)
+    // =========================================================================
+    function clusterCoords(arr, tol = 2.5) {
+      const sorted = [...arr].sort((a, b) => a - b);
+      const res = [];
+      for (const v of sorted) {
+        if (!res.length || Math.abs(v - res[res.length - 1]) > tol) {
+          res.push(v);
+        }
+      }
+      return res;
+    }
+
+    function joinLineItems(lineItems) {
+      let out = '';
+      let prevEnd = null;
+      for (const it of lineItems) {
+        if (prevEnd !== null && it.x - prevEnd > 2.5 && !out.endsWith(' ') && !it.str.startsWith(' ')) {
+          out += ' ';
+        }
+        out += it.str;
+        prevEnd = it.x + (it.w || 0);
+      }
+      return out.replace(/\s+/g, ' ').trim();
+    }
+
+    const CSDT_START_REGEX = /^['‘’"`]*(?:Trung\s+tâm|TT\b|Trường|Cty|Công\s+ty|Phân\s+hiệu|Kỳ\s+sát\s+hạch|Tổ\s+chức|Thí\s+sinh|Quá\s+hạn)/i;
+
+    function cleanAndMergeCsdtLines(rawLines, prevRow) {
+      const merged = [];
+      for (const line of rawLines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (!CSDT_START_REGEX.test(trimmed)) {
+          if (merged.length > 0) {
+            const sep = merged[merged.length - 1].endsWith('-') ? '' : ' ';
+            merged[merged.length - 1] = `${merged[merged.length - 1]}${sep}${trimmed}`;
+          } else if (prevRow && prevRow.csdt) {
+            const sep = prevRow.csdt.endsWith('-') ? '' : ' ';
+            prevRow.csdt = `${prevRow.csdt}${sep}${trimmed}`;
+          } else {
+            merged.push(trimmed);
+          }
+        } else {
+          merged.push(trimmed);
+        }
+      }
+      return merged.join('\n');
+    }
+
+    async function parsePdfArrayBuffer(arrayBuffer) {
+      const doc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+      let extractedRows = [];
+      let totalTextItems = 0;
+      let fullHeaderText = '';
+
+      // Render PDF preview pages
+      const previewContainer = document.getElementById('pdfPreviewList');
+      previewContainer.innerHTML = '';
+
+      for (let p = 1; p <= doc.numPages; p++) {
+        const page = await doc.getPage(p);
+
+        // Vẽ trang PDF lên vùng xem trước
+        const vp = page.getViewport({ scale: 1.35 });
+        const canvas = document.createElement('canvas');
+        canvas.className = 'pdf-page-canvas';
+        canvas.width = vp.width;
+        canvas.height = vp.height;
+        previewContainer.appendChild(canvas);
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+
+        // Lấy đường kẻ bảng từ OperatorList
+        const ops = await page.getOperatorList();
+        let ctm = [1, 0, 0, 1, 0, 0];
+        let hRaw = [], vRaw = [], hSegments = [];
+        for (let i = 0; i < ops.fnArray.length; i++) {
+          const fn = ops.fnArray[i];
+          const args = ops.argsArray[i];
+          if (fn === pdfjsLib.OPS.transform) {
+            ctm = args;
+          } else if (fn === pdfjsLib.OPS.constructPath) {
+            const coords = args[1];
+            if (!coords) continue;
+            for (let j = 0; j + 7 < coords.length; j += 8) {
+              const xs = [coords[j], coords[j+2], coords[j+4], coords[j+6]].map(x => ctm[0] * x + ctm[4]);
+              const ys = [coords[j+1], coords[j+3], coords[j+5], coords[j+7]].map(y => ctm[3] * y + ctm[5]);
+              const minX = Math.min(...xs), maxX = Math.max(...xs);
+              const minY = Math.min(...ys), maxY = Math.max(...ys);
+              if (maxX - minX > 200 && maxY - minY < 5) {
+                const yMid = (minY + maxY) / 2;
+                hRaw.push(yMid);
+                hSegments.push({ y: yMid, minX, maxX });
+              }
+              if (maxY - minY > 18 && maxX - minX < 5) vRaw.push((minX + maxX) / 2);
+            }
+          }
+        }
+
+        const hLines = clusterCoords(hRaw, 2.5).sort((a, b) => b - a);
+        const vLines = clusterCoords(vRaw, 3.0).sort((a, b) => a - b);
+
+        const tc = await page.getTextContent();
+        const items = tc.items
+          .filter(it => it.str && it.str.trim().length > 0)
+          .map(it => ({
+            str: it.str,
+            x: it.transform[4],
+            y: it.transform[5],
+            w: it.width
+          }));
+
+        totalTextItems += items.length;
+        if (p === 1) {
+          fullHeaderText = items.map(i => i.str).join(' ');
+          detectMonthYearFromText(fullHeaderText);
+        }
+
+        if (hLines.length >= 3 && vLines.length >= 5) {
+          // Hỗ trợ cả bảng gộp ô dọc cột Ngày sát hạch (như T10 - 3KV)
+          const dateColRight = vLines.length >= 3 ? vLines[2] : 130;
+          const fullH = clusterCoords(
+            hSegments.filter(s => s.minX < dateColRight - 15).map(s => s.y),
+            2.5
+          ).sort((a, b) => b - a);
+
+          const findMergedDateForY = (yMid) => {
+            for (let k = 0; k < fullH.length - 1; k++) {
+              if (yMid <= fullH[k] + 1 && yMid >= fullH[k + 1] - 1) {
+                const dItem = items.find(it =>
+                  it.y <= fullH[k] && it.y >= fullH[k + 1] &&
+                  it.x < dateColRight + 5 &&
+                  /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(it.str.trim())
+                );
+                if (dItem) return dItem.str.trim();
+              }
+            }
+            return '';
+          };
+
+          // Chế độ 1: Tách theo ô lưới bảng chính xác
+          for (let r = 0; r < hLines.length - 1; r++) {
+            const yTop = hLines[r], yBot = hLines[r + 1];
+            const rowItems = items.filter(it => it.y <= yTop - 0.5 && it.y >= yBot - 1.0);
+            if (!rowItems.length) continue;
+
+            const cells = [];
+            for (let c = 0; c < vLines.length - 1; c++) {
+              const xLeft = vLines[c], xRight = vLines[c + 1];
+              const cellItems = rowItems.filter(it => it.x >= xLeft - 0.5 && it.x < xRight - 0.5);
+              cellItems.sort((a, b) => Math.abs(b.y - a.y) > 2.5 ? b.y - a.y : a.x - b.x);
+              let lines = [];
+              for (const it of cellItems) {
+                if (!lines.length || Math.abs(lines[lines.length - 1].y - it.y) > 2.5) {
+                  lines.push({ y: it.y, items: [it] });
+                } else {
+                  lines[lines.length - 1].items.push(it);
+                }
+              }
+              cells.push(lines.map(l => joinLineItems(l.items)).filter(Boolean).join('\n'));
+            }
+            const fallbackDate = findMergedDateForY((yTop + yBot) / 2);
+            const prevRow = extractedRows.length > 0 ? extractedRows[extractedRows.length - 1] : null;
+            const parsedRow = interpretRawCells(cells, fallbackDate, prevRow);
+            if (parsedRow) extractedRows.push(parsedRow);
+          }
+        } else if (items.length > 0) {
+          // Chế độ 2: PDF văn bản nhưng không có đường kẻ vector -> gom theo tọa độ Ngày sát hạch
+          const fallbackRows = extractPageWithoutGridLines(items);
+          extractedRows.push(...fallbackRows);
+        }
+      }
+
+      // Nếu PDF là bản scan (không có text) -> Tự động chạy OCR
+      if (totalTextItems < 10 || extractedRows.length === 0) {
+        await runOcrOnCurrentPdf();
+        return;
+      }
+
+      allExtractedPdfRows = extractedRows;
+      applyRawFilters();
+    }
+
+    function interpretRawCells(cells, fallbackDate = '', prevRow = null) {
+      // Tìm cột chứa Ngày sát hạch (dd/mm/yyyy)
+      let dateIdx = cells.findIndex(c => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(c.trim()));
+      let ngayDuKien = '';
+      let ngayChuyen = '';
+
+      if (dateIdx !== -1) {
+        ngayDuKien = cells[dateIdx].trim();
+        // Trường hợp bảng Điều chỉnh Tháng 8 có 2 cột ngày liên tiếp (Ngày dự kiến T8 | Ngày chuyển)
+        if (cells[dateIdx + 1] && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cells[dateIdx + 1].trim())) {
+          ngayChuyen = cells[dateIdx + 1].trim();
+          dateIdx = dateIdx + 1;
+        }
+      } else if (fallbackDate && /^\d+$/.test((cells[0] || '').trim()) && (cells[1] || '').trim() === '') {
+        // Trường hợp ô Ngày sát hạch được gộp dọc nhiều dòng (như Lịch T10 3KV)
+        dateIdx = 1;
+        ngayDuKien = fallbackDate;
+      } else {
+        return null;
+      }
+
+      const ngay = ngayChuyen || ngayDuKien;
+      const rawCsdtLines = (cells[dateIdx + 1] || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      const csdt = cleanAndMergeCsdtLines(rawCsdtLines, prevRow);
+      const ttsh = (cells[dateIdx + 2] || '').replace(/\s*\n\s*/g, ' ').trim();
+
+      let khuVuc = 'TT';
+      let soLuong = '';
+      let hangSh = '';
+
+      const remaining = cells.slice(dateIdx + 3).map(c => c.replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ').trim());
+
+      // Tự động nhận diện cột Khu vực, Số lượng (kể cả có số lượng Đ như "600 (250Đ)"), và Hạng SH
+      const isKhuVuc = (s) => /^(TT|1|2|3)$/i.test(s);
+      const isSoLuong = (s) => /^\d+(?:\.\d{3})*(?:\s*\(\d+\s*Đ?\))?$/i.test(s);
+
+      if (remaining.length >= 3) {
+        // Kiểm tra cấu trúc 4-5 cột phụ của T9, T10 (Địa chỉ | [Mã TT] | Hạng SH | Số lượng | Khu vực)
+        if (remaining.length >= 4 && isKhuVuc(remaining[remaining.length - 1]) && isSoLuong(remaining[remaining.length - 2])) {
+          khuVuc = remaining[remaining.length - 1];
+          soLuong = remaining[remaining.length - 2].replace(/\./g, '').replace(/\s+/g, '');
+          hangSh = remaining[remaining.length - 3];
+        } else {
+          khuVuc = remaining[0];
+          soLuong = remaining[1].replace(/\./g, '').replace(/\s+/g, '');
+          hangSh = remaining[2];
+        }
+      } else if (remaining.length === 2) {
+        soLuong = remaining[0].replace(/\./g, '').replace(/\s+/g, '');
+        hangSh = remaining[1];
+      } else if (remaining.length === 1) {
+        const m = remaining[0].match(/^(\d+(?:\s*\(\d+\s*Đ?\))?)\s*(.*)$/i);
+        if (m) {
+          soLuong = m[1].replace(/\s+/g, '');
+          hangSh = m[2];
+        } else {
+          hangSh = remaining[0];
+        }
+      }
+
+      if (!csdt && !ttsh) return null;
+      const res = {
+        ngay,
+        csdt,
+        ttsh,
+        khuVuc,
+        soLuong,
+        hangSh,
+        soLuongHang: `${soLuong}${hangSh}`
+      };
+      if (ngayChuyen) {
+        res.ngayDuKien = ngayDuKien;
+        res.ngayChuyen = ngayChuyen;
+      }
+      return res;
+    }
+
+    function extractPageWithoutGridLines(items) {
+      // Tìm tất cả text item là ngày dd/mm/yyyy
+      const dateItems = items
+        .filter(it => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(it.str.trim()))
+        .sort((a, b) => b.y - a.y);
+
+      if (!dateItems.length) return [];
+
+      const results = [];
+      for (let i = 0; i < dateItems.length; i++) {
+        const dIt = dateItems[i];
+        const yTop = i === 0 ? dIt.y + 28 : (dateItems[i - 1].y + dIt.y) / 2;
+        const yBot = i === dateItems.length - 1 ? dIt.y - 28 : (dIt.y + dateItems[i + 1].y) / 2;
+
+        const rowItems = items.filter(it => it.y <= yTop && it.y > yBot);
+        const csdtItems = rowItems.filter(it => it.x > dIt.x + 45 && it.x < 395);
+        const ttshItems = rowItems.filter(it => it.x >= 395 && it.x < 590);
+        const rightItems = rowItems.filter(it => it.x >= 590);
+
+        const groupLines = (arr) => {
+          arr.sort((a, b) => Math.abs(b.y - a.y) > 2.5 ? b.y - a.y : a.x - b.x);
+          const lines = [];
+          for (const it of arr) {
+            if (!lines.length || Math.abs(lines[lines.length - 1].y - it.y) > 2.5) {
+              lines.push({ y: it.y, items: [it] });
+            } else {
+              lines[lines.length - 1].items.push(it);
+            }
+          }
+          return lines.map(l => joinLineItems(l.items)).filter(Boolean);
+        };
+
+        const csdt = groupLines(csdtItems).join('\n');
+        const ttsh = groupLines(ttshItems).join(' ');
+        const rightText = groupLines(rightItems).join(' ');
+        const mRight = rightText.match(/^(TT|\d+)?\s*(\d+(?:\.\d{3})*)\s*(.*)$/i);
+
+        let khuVuc = 'TT', soLuong = '', hangSh = rightText;
+        if (mRight) {
+          khuVuc = mRight[1] || 'TT';
+          soLuong = (mRight[2] || '').replace(/\./g, '');
+          hangSh = (mRight[3] || '').trim();
+        }
+        results.push({
+          ngay: dIt.str.trim(),
+          csdt,
+          ttsh,
+          khuVuc,
+          soLuong,
+          hangSh,
+          soLuongHang: `${soLuong}${hangSh}`
+        });
+      }
+      return results;
+    }
+
+    // =========================================================================
+    // NHẬN DIỆN CHỮ OCR CHO PDF SCAN (TESSERACT.JS)
+    // =========================================================================
+    async function runOcrOnCurrentPdf() {
+      if (!currentPdfBuffer) return;
+      const wrap = document.getElementById('ocrProgressWrap');
+      const bar = document.getElementById('ocrProgressBar');
+      const label = document.getElementById('ocrProgressLabel');
+      wrap.style.display = 'block';
+      bar.style.width = '5%';
+      label.textContent = 'Đang khởi tạo bộ nhận diện chữ OCR tiếng Việt...';
+
+      try {
+        const canvases = document.querySelectorAll('.pdf-page-canvas');
+        const ocrRows = [];
+
+        for (let i = 0; i < canvases.length; i++) {
+          const pct = Math.round(((i) / canvases.length) * 100);
+          bar.style.width = `${Math.max(10, pct)}%`;
+          label.textContent = `Đang quét OCR trang ${i + 1}/${canvases.length}...`;
+
+          const res = await Tesseract.recognize(canvases[i], 'vie');
+          const text = res.data.text || '';
+          if (i === 0) detectMonthYearFromText(text);
+
+          const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          for (const line of lines) {
+            const mDate = line.match(/(\d{2}\/\d{2}\/\d{4})\s+(.*?)\s+(Trung tâm[^\t]+?)\s+(?:TT|1|2)\s+(\d+)\s+([A-Z0-9,\s]+)$/i);
+            if (mDate) {
+              const ngay = mDate[1];
+              const csdt = mDate[2].trim();
+              const ttsh = mDate[3].trim();
+              const soLuong = mDate[4].replace(/\./g, '').trim();
+              const hangSh = mDate[5].trim();
+              ocrRows.push({
+                ngay,
+                csdt,
+                ttsh,
+                khuVuc: 'TT',
+                soLuong,
+                hangSh,
+                soLuongHang: `${soLuong}${hangSh}`
+              });
+            }
+          }
+        }
+
+        bar.style.width = '100%';
+        label.textContent = `Hoàn tất OCR (${ocrRows.length} dòng nhận diện được)`;
+        setTimeout(() => { wrap.style.display = 'none'; }, 2500);
+
+        if (ocrRows.length > 0) {
+          allExtractedPdfRows = ocrRows;
+          applyRawFilters();
+        } else {
+          alert('Đã quét OCR nhưng không tìm thấy cấu trúc bảng chuẩn. Bạn có thể thêm/chỉnh sửa trực tiếp trên bảng.');
+        }
+      } catch (err) {
+        console.error(err);
+        wrap.style.display = 'none';
+        alert('Lỗi khi chạy OCR: ' + (err.message || err));
+      }
+    }
+
+    // =========================================================================
+    // ĐỌC FILE EXCEL (.XLSX) HOẶC WORD (.DOCX) LỊCH GỐC
+    // =========================================================================
+    async function parseExcelFile(file) {
+      const ab = await file.arrayBuffer();
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(ab);
+      const ws = wb.worksheets[0];
+      if (!ws) return;
+
+      const extracted = [];
+      ws.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return; // Bỏ qua dòng tiêu đề
+        const vals = [];
+        for (let c = 1; c <= 8; c++) {
+          const cell = row.getCell(c);
+          let v = cell.value;
+          if (v && typeof v === 'object') {
+            if (v instanceof Date) {
+              const d = String(v.getUTCDate()).padStart(2, '0');
+              const m = String(v.getUTCMonth() + 1).padStart(2, '0');
+              const y = v.getUTCFullYear();
+              v = `${d}/${m}/${y}`;
+            } else if (v.richText) {
+              v = v.richText.map(rt => rt.text).join('');
+            } else if (v.result !== undefined) {
+              v = v.result;
+            }
+          }
+          vals.push(v !== null && v !== undefined ? String(v).trim() : '');
+        }
+
+        // Kiểm tra định dạng 5 cột (như Sheet Hạng B,C) hoặc 6-7 cột
+        const dateIdx = vals.findIndex(v => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v) || /^\d{4}-\d{2}-\d{2}/.test(v));
+        if (dateIdx !== -1) {
+          let ngay = vals[dateIdx];
+          if (/^\d{4}-\d{2}-\d{2}/.test(ngay)) {
+            const [y, m, d] = ngay.slice(0, 10).split('-');
+            ngay = `${d}/${m}/${y}`;
+          }
+          const csdt = vals[dateIdx + 1] || '';
+          const ttsh = vals[dateIdx + 2] || '';
+          const colNext = vals[dateIdx + 3] || '';
+          const colNext2 = vals[dateIdx + 4] || '';
+          const colNext3 = vals[dateIdx + 5] || '';
+
+          let khuVuc = 'TT', soLuong = '', hangSh = '', soLuongHang = '';
+          if (colNext2 && colNext3) {
+            khuVuc = colNext;
+            soLuong = colNext2;
+            hangSh = colNext3;
+            soLuongHang = `${soLuong}${hangSh}`;
+          } else {
+            soLuongHang = colNext;
+            const m = soLuongHang.match(/^(\d+)\s*(.*)$/);
+            if (m) {
+              soLuong = m[1];
+              hangSh = m[2];
+            } else {
+              hangSh = soLuongHang;
+            }
+          }
+          if (csdt || ttsh) {
+            const origStt = dateIdx > 0 ? vals[0] : undefined;
+            extracted.push({ origStt, ngay, csdt, ttsh, khuVuc, soLuong, hangSh, soLuongHang });
+          }
+        }
+      });
+
+      allExtractedPdfRows = extracted;
+      applyRawFilters();
+    }
+
+    async function parseWordFile(file) {
+      const ab = await file.arrayBuffer();
+      const res = await mammoth.convertToHtml({ arrayBuffer: ab });
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(res.value, 'text/html');
+      const trs = doc.querySelectorAll('table tr');
+      const extracted = [];
+
+      trs.forEach(tr => {
+        const tds = Array.from(tr.querySelectorAll('td, th')).map(td => {
+          const ps = Array.from(td.querySelectorAll('p, li'));
+          if (ps.length > 0) return ps.map(p => p.textContent.trim()).filter(Boolean).join('\n');
+          return td.textContent.trim();
+        });
+        const parsed = interpretRawCells(tds);
+        if (parsed) extracted.push(parsed);
+      });
+
+      allExtractedPdfRows = extracted;
+      applyRawFilters();
+    }
+
+    // =========================================================================
+    // LỌC DỮ LIỆU & TÁCH DÒNG CSĐT THEO ĐÚNG QUY TẮC MẪU T2, T3
+    // =========================================================================
+    function applyRawFilters() {
+      const hangFilter = document.getElementById('selHangFilter').value;
+      const kvFilter = document.getElementById('selKhuVucFilter').value;
+      const dateColModeEl = document.getElementById('selDateColMode');
+      const dateColMode = dateColModeEl ? dateColModeEl.value : 'CHUYEN';
+
+      const filtered = allExtractedPdfRows.filter(r => {
+        const hang = (r.hangSh || r.soLuongHang || '').toUpperCase();
+        const isOto = /[BCD]/.test(hang);
+        const isMoto = /A1|A\b/.test(hang) && !isOto;
+
+        if (hangFilter === 'OTO' && !isOto) return false;
+        if (hangFilter === 'MOTO' && !isMoto) return false;
+
+        if (kvFilter !== 'ALL') {
+          if ((r.khuVuc || 'TT').toUpperCase() !== kvFilter) return false;
+        }
+        return true;
+      });
+
+      scheduleRows = filtered.map((r, idx) => {
+        let chosenDate = r.ngay;
+        if (r.ngayChuyen && r.ngayDuKien) {
+          chosenDate = dateColMode === 'DU_KIEN' ? r.ngayDuKien : r.ngayChuyen;
+        }
+        return {
+          stt: r.origStt !== undefined ? r.origStt : (idx + 1),
+          ngay: chosenDate,
+          ngayDuKien: r.ngayDuKien || '',
+          ngayChuyen: r.ngayChuyen || '',
+          csdt: r.csdt,
+          ttsh: r.ttsh,
+          khuVuc: r.khuVuc || 'TT',
+          soLuongHang: r.soLuongHang
+        };
+      });
+
+      recalculateAll();
+    }
+
+    // Chuẩn hóa tên CSĐT (tránh lệch chữ hoa/thường ở đầu câu hoặc dấu nháy đơn thừa)
+    function normalizeCsdtName(name) {
+      let s = name.replace(/^['‘’"`]+/, '').replace(/\s+/g, ' ').trim();
+      s = s.replace(/^trung tâm\b/i, 'Trung tâm');
+      s = s.replace(/^trường\b/i, 'Trường');
+      s = s.replace(/^cty\b/i, 'Cty');
+      return s;
+    }
+
+    // Chuẩn hóa tên Trung tâm sát hạch
+    function normalizeTtshName(name) {
+      let s = (name || '').replace(/\s+/g, ' ').trim();
+      if (/Hoàng gia/i.test(s)) s = s.replace(/Hoàng gia/i, 'Hoàng Gia');
+      return s;
+    }
+
+    // Tên viết tắt Trung tâm sát hạch trên dòng tiêu đề cột Sheet 2 (giống hệt mẫu T2, T3)
+    function shortTtshName(fullName) {
+      let s = normalizeTtshName(fullName);
+      s = s.replace(/^Trung tâm sát hạch lái xe\s+/i, '');
+      s = s.replace(/^Trung tâm\s+/i, 'TT ');
+      return s;
+    }
+
+    // Phân tích 1 dòng trong ô Cơ sở đào tạo (Hỗ trợ đầy đủ cả số lượng Đ như (125Đ), 300 (125Đ), 30Đ, 65C, 14D2 (30Đ), 300 (B01: 60; C1: 60)...)
+    function parseCsdtLine(line) {
+      let clean = (line || '').trim().replace(/^['‘’"`]+/, '').trim();
+      if (!clean) return null;
+
+      // Nhặt cụm số lượng + hạng xe / số lượng Đ ở cuối dòng CSĐT:
+      // Khớp tất cả các dạng:
+      // - "600", "1.350", "250B", "70CE", "300B, C1, C", "50 D2, D", "60 C, D2, D"
+      // - "(180)", "(9 D2)", "(111 - B, C1)", "300 (B01: 60; C1: 60)"
+      // - "(125Đ)", "30Đ", "300 (125Đ)", "250B (200Đ)", "250 (120)"
+      // - "65C, 14D2 (30Đ)", "8C, 20D2, 20D (40Đ)", "50C, 40D2 (35Đ)"
+      // Không khớp nhầm tên cơ sở như "(KV1)", "(KV2)", "(CS2)", "(Miền Đông)", "(Thuận An)", "(09/4)", "TW3", "21-BQP"
+      const qtyRegex = /^(.*?)(?:\s+|\s*(?=\())((?:\d+(?:\.\d{3})*(?:\s*(?:Đ|B01|B|C1|C|D2|D|CE|A1|A))?(?:\s*,\s*(?:\d+\s*)?(?:B01|B|C1|C|D2|D|CE|A1|A))*\s*)(?:\([^)]*\))?|\(\s*\d+(?:[.,]\d+)?\s*(?:-\s*)?(?:Đ|VR|B01|B|C1|C|D2|D|CE|A1|A|,\s*|\s+)*\))\s*$/i;
+
+      const m = clean.match(qtyRegex);
+      if (m && m[2] && m[2].trim()) {
+        const namePart = m[1].trim();
+        let qtyPart = m[2].trim();
+        if (namePart && !/[-/]$/.test(namePart)) {
+          // Loại bỏ dấu chấm phân cách hàng nghìn trong số lượng (VD: 1.350 -> 1350)
+          qtyPart = qtyPart.replace(/(\d)\.(\d{3})\b/g, '$1$2');
+          // Nếu chỉ có số hoặc số + hạng xe trong ngoặc đơn (không có chữ Đ), VD "(180)" hoặc "(9 D2)" -> bỏ ngoặc ngoài giống mẫu
+          const simpleParen = qtyPart.match(/^\(\s*(\d+(?:\s*(?:-\s*)?(?:B|C1|C|D2|D|CE|A1|A)(?:\s*,\s*(?:B|C1|C|D2|D|CE|A1|A))*)?)\s*\)$/i);
+          if (simpleParen) {
+            qtyPart = simpleParen[1].replace(/\s*-\s*/, '');
+          }
+          return {
+            name: normalizeCsdtName(namePart),
+            qtyStr: qtyPart
+          };
+        }
+      }
+
+      return { name: normalizeCsdtName(clean), qtyStr: null };
+    }
+
+    function extractHangSuffix(soLuongHang) {
+      const s = String(soLuongHang || '').trim();
+      return s.replace(/^\s*\d+(?:\.\d{3})*(?:\s*\([^)]*\))?\s*/, '').trim();
+    }
+
+    function isGenericCandidateLine(name) {
+      return /^(?:Thí\s+sinh|Kỳ\s+sát\s+hạch|Quá\s+hạn|Tổ\s+chức)/i.test((name || '').trim());
+    }
+
+    // Phân bổ số lượng cho các dòng CSĐT trong 1 đợt sát hạch sao cho:
+    // 1. Không bỏ sót bất kỳ CSĐT nào
+    // 2. Tổng số lượng của đợt sát hạch luôn khớp 100% với cột Số lượng / Hạng xe
+    function allocateRowCsdts(row, mode) {
+      const rule = mode || document.getElementById('selNoQtyRule').value || 'REMAINDER_FIRST';
+      const lines = (row.csdt || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      if (!lines.length) return [];
+
+      if (lines.length === 1) {
+        const p = parseCsdtLine(lines[0]);
+        return [{
+          name: p ? p.name : normalizeCsdtName(lines[0]),
+          val: (row.soLuongHang || (p && p.qtyStr) || '').trim(),
+          status: 'EXACT'
+        }];
+      }
+
+      const parsedList = lines.map(parseCsdtLine).filter(Boolean);
+      const missingIndices = [];
+      let knownSum = 0;
+
+      parsedList.forEach((p, idx) => {
+        if (p.qtyStr) {
+          knownSum += extractLeadingNumber(p.qtyStr);
+        } else {
+          missingIndices.push(idx);
+        }
+      });
+
+      if (missingIndices.length === 0) {
+        return parsedList.map(p => ({ name: p.name, val: p.qtyStr, status: 'EXACT' }));
+      }
+
+      if (rule === 'SKIP') {
+        return parsedList.map(p => ({
+          name: p.name,
+          val: p.qtyStr || '',
+          status: p.qtyStr ? 'EXACT' : 'SKIP'
+        }));
+      }
+
+      if (rule === 'KEEP_DUPLICATE') {
+        return parsedList.map(p => ({
+          name: p.name,
+          val: p.qtyStr || row.soLuongHang || '',
+          status: p.qtyStr ? 'EXACT' : 'AUTO_CALC'
+        }));
+      }
+
+      const totalRowQty = extractLeadingNumber(row.soLuongHang);
+      const remainder = Math.max(0, totalRowQty - knownSum);
+      const hangSuffix = extractHangSuffix(row.soLuongHang);
+      const sharedLabel = hangSuffix ? `${hangSuffix} (Chung đợt)` : '(Chung đợt)';
+
+      if (rule === 'GROUP_NAME' && missingIndices.length > 1) {
+        const result = [];
+        const groupedNames = missingIndices.map(i => parsedList[i].name).join(' + ');
+        const groupedVal = remainder > 0 ? `${remainder}${hangSuffix}` : sharedLabel;
+        let groupInserted = false;
+        parsedList.forEach((p) => {
+          if (p.qtyStr) {
+            result.push({ name: p.name, val: p.qtyStr, status: 'EXACT' });
+          } else if (!groupInserted) {
+            result.push({ name: groupedNames, val: groupedVal, status: 'AUTO_CALC' });
+            groupInserted = true;
+          }
+        });
+        return result;
+      }
+
+      if (rule === 'SPLIT_EVEN') {
+        const m = missingIndices.length;
+        const base = Math.floor(remainder / m);
+        const extra = remainder % m;
+        let missOrd = 0;
+        return parsedList.map(p => {
+          if (p.qtyStr) return { name: p.name, val: p.qtyStr, status: 'EXACT' };
+          const share = base + (missOrd < extra ? 1 : 0);
+          missOrd++;
+          const val = share > 0 ? `${share}${hangSuffix}` : sharedLabel;
+          return { name: p.name, val, status: share > 0 ? 'AUTO_CALC' : 'SHARED' };
+        });
+      }
+
+      // Mặc định: REMAINDER_FIRST (Phương án 1)
+      // Ưu tiên gán số lượng còn lại của đợt cho CSĐT chính (Trung tâm/Trường/Cty) thay vì dòng "Thí sinh tự do..."
+      let primaryIdx = missingIndices.find(idx => !isGenericCandidateLine(parsedList[idx].name));
+      if (primaryIdx === undefined) primaryIdx = missingIndices[0];
+
+      return parsedList.map((p, idx) => {
+        if (p.qtyStr) return { name: p.name, val: p.qtyStr, status: 'EXACT' };
+        if (idx === primaryIdx) {
+          const val = remainder > 0 ? `${remainder}${hangSuffix}` : sharedLabel;
+          return { name: p.name, val, status: remainder > 0 ? 'AUTO_CALC' : 'SHARED' };
+        }
+        return { name: p.name, val: sharedLabel, status: 'SHARED' };
+      });
+    }
+
+    // Trích xuất danh sách chi tiết từ bảng Lịch gốc (Sheet 1)
+    function expandScheduleRows(rows) {
+      const noQtyRule = document.getElementById('selNoQtyRule').value;
+      const expanded = [];
+
+      for (const row of rows) {
+        // Nếu dòng không có Số TT (như dòng phụ trong T2.2026) thì bỏ qua khi tổng hợp
+        if (row.stt === '' || row.stt === null || row.stt === undefined) continue;
+        if (!row.ngay || !row.ttsh) continue;
+
+        const ttshNorm = normalizeTtshName(row.ttsh);
+        const allocated = allocateRowCsdts(row, noQtyRule);
+        for (const item of allocated) {
+          if (item.status === 'SKIP') continue;
+          expanded.push({
+            ngay: row.ngay.trim(),
+            csdt: item.name,
+            ttsh: ttshNorm,
+            val: item.val
+          });
+        }
+      }
+      return expanded;
+    }
+
+    function parseDateToSortable(ddmmyyyy) {
+      const parts = (ddmmyyyy || '').split('/');
+      if (parts.length === 3) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+      return ddmmyyyy;
+    }
+
+    function extractLeadingNumber(val) {
+      if (typeof val === 'number') return val;
+      const s = String(val || '').replace(/(\d)\.(\d{3})\b/g, '$1$2').trim();
+      if (!s) return 0;
+
+      // Phần trước dấu ngoặc đơn '(' (VD: "300 (125Đ)", "600(250Đ)B, C1", "65C, 14D2 (30Đ)")
+      const beforeParen = s.split('(')[0].trim();
+      if (beforeParen) {
+        // Cộng tất cả các số lượng đứng đầu mỗi hạng xe (không lấy số 1, 2 trong C1, D2, B01, A1)
+        const nums = [...beforeParen.matchAll(/(?<![A-Za-z0-9])(\d+)/g)].map(m => parseInt(m[1], 10));
+        if (nums.length > 0) {
+          return nums.reduce((a, b) => a + b, 0);
+        }
+      }
+
+      // Trường hợp chỉ có số lượng trong ngoặc như "(125Đ)" hoặc "(180)"
+      const inParen = s.match(/\(\s*(\d+)/);
+      return inParen ? parseInt(inParen[1], 10) : 0;
+    }
+
+    function mergeCellVal(existingVal, newVal) {
+      if (!existingVal) return newVal;
+      if (!newVal) return existingVal;
+      const n1 = extractLeadingNumber(existingVal);
+      const n2 = extractLeadingNumber(newVal);
+      if (n1 > 0 && n2 === 0) return existingVal;
+      if (n2 > 0 && n1 === 0) return newVal;
+      if (n1 > 0 && n2 > 0) {
+        const suffix = extractHangSuffix(existingVal) || extractHangSuffix(newVal);
+        return `${n1 + n2}${suffix}`;
+      }
+      return existingVal;
+    }
+
+    // =========================================================================
+    // TÍNH TOÁN MA TRẬN SHEET 2 (TONG_HOP_MAU_MOI) & SHEET 3 (TONG_HOP_MAU_MOI_2)
+    // =========================================================================
+    function recalculateAll() {
+      const expanded = expandScheduleRows(scheduleRows);
+
+      // Danh sách Trung tâm sát hạch (duy nhất, sắp xếp theo bảng chữ cái tiếng Việt)
+      const allTtshSet = new Set();
+      scheduleRows.forEach(r => {
+        if (r.ttsh && r.ttsh.trim()) allTtshSet.add(normalizeTtshName(r.ttsh));
+      });
+      expanded.forEach(e => {
+        if (e.ttsh) allTtshSet.add(e.ttsh);
+      });
+      const ttshCols = [...allTtshSet].sort((a, b) => a.localeCompare(b, 'vi'));
+
+      // Danh sách CSĐT (duy nhất, sắp xếp theo bảng chữ cái tiếng Việt)
+      const allCsdtSet = new Set(expanded.map(e => e.csdt));
+      const csdtCols = [...allCsdtSet].sort((a, b) => a.localeCompare(b, 'vi'));
+
+      // --- Xây dựng dữ liệu Sheet 2 (TONG_HOP_MAU_MOI): Dòng = (Ngày, CSĐT), Cột = TTSH ---
+      const map1 = new Map();
+      for (const item of expanded) {
+        const key = `${parseDateToSortable(item.ngay)}||${item.ngay}||${item.csdt}`;
+        if (!map1.has(key)) {
+          map1.set(key, {
+            sortDate: parseDateToSortable(item.ngay),
+            ngay: item.ngay,
+            csdt: item.csdt,
+            cells: {}
+          });
+        }
+        const entry = map1.get(key);
+        entry.cells[item.ttsh] = mergeCellVal(entry.cells[item.ttsh], item.val);
+      }
+
+      const rows1 = [...map1.values()].sort((a, b) => {
+        if (a.sortDate !== b.sortDate) return a.sortDate.localeCompare(b.sortDate);
+        return a.csdt.localeCompare(b.csdt, 'vi');
+      });
+
+      const dots1 = ttshCols.map(t => {
+        const distinctDates = new Set(rows1.filter(r => r.cells[t] !== undefined && r.cells[t] !== '').map(r => r.ngay));
+        return distinctDates.size;
+      });
+
+      const sums1 = ttshCols.map(t => {
+        return rows1.reduce((acc, r) => acc + extractLeadingNumber(r.cells[t]), 0);
+      });
+
+      matrix1Data = { ttshCols, rows: rows1, dots: dots1, sums: sums1 };
+
+      // --- Xây dựng dữ liệu Sheet 3 (TONG_HOP_MAU_MOI_2): Dòng = (Ngày, TTSH), Cột = CSĐT ---
+      const map2 = new Map();
+      for (const item of expanded) {
+        const key = `${parseDateToSortable(item.ngay)}||${item.ngay}||${item.ttsh}`;
+        if (!map2.has(key)) {
+          map2.set(key, {
+            sortDate: parseDateToSortable(item.ngay),
+            ngay: item.ngay,
+            ttsh: item.ttsh,
+            cells: {}
+          });
+        }
+        const entry = map2.get(key);
+        entry.cells[item.csdt] = mergeCellVal(entry.cells[item.csdt], item.val);
+      }
+
+      const rows2 = [...map2.values()].sort((a, b) => {
+        if (a.sortDate !== b.sortDate) return a.sortDate.localeCompare(b.sortDate);
+        return a.ttsh.localeCompare(b.ttsh, 'vi');
+      });
+
+      const dots2 = csdtCols.map(c => {
+        const distinctDates = new Set(rows2.filter(r => r.cells[c] !== undefined && r.cells[c] !== '').map(r => r.ngay));
+        return distinctDates.size;
+      });
+
+      const sums2 = csdtCols.map(c => {
+        return rows2.reduce((acc, r) => acc + extractLeadingNumber(r.cells[c]), 0);
+      });
+
+      matrix2Data = { csdtCols, rows: rows2, dots: dots2, sums: sums2 };
+
+      // Cập nhật thống kê & giao diện
+      updateStatsBar(expanded.length, ttshCols.length, csdtCols.length, sums1.reduce((a, b) => a + b, 0));
+      renderTab1();
+      renderTab2();
+      renderTab3();
+      document.getElementById('btnExportExcel').disabled = scheduleRows.length === 0;
+    }
+
+    function updateStatsBar(expCount, ttshCount, csdtCount, totalQty) {
+      document.getElementById('statRawRows').textContent = `Lịch gốc (Hạng B,C): ${scheduleRows.length} dòng`;
+      document.getElementById('statExpandedRows').textContent = `Dòng CSĐT tổng hợp: ${expCount} dòng`;
+      document.getElementById('statCenters').textContent = `Trung tâm SH: ${ttshCount}`;
+      document.getElementById('statCsdts').textContent = `Số CSĐT: ${csdtCount}`;
+      document.getElementById('statTotalQty').textContent = `Tổng lưu lượng dự kiến: ${totalQty.toLocaleString('vi-VN')}`;
+    }
+
+    function updateTitles() {
+      renderTab2();
+      renderTab3();
+    }
+
+    // =========================================================================
+    // HIỂN THỊ BẢNG XEM TRƯỚC & CHỈNH SỬA TRỰC TIẾP
+    // =========================================================================
+    function renderTab1() {
+      const container = document.getElementById('tab1Content');
+      if (!scheduleRows.length) return;
+
+      const noQtyRule = document.getElementById('selNoQtyRule').value;
+
+      let html = `
+        <table class="excel-table">
+          <thead>
+            <tr>
+              <th style="width:55px;">Số TT</th>
+              <th style="width:115px;">Ngày sát hạch</th>
+              <th style="min-width:340px;">Cơ sở đào tạo (Nhấp để sửa)</th>
+              <th style="min-width:280px;">Trung tâm sát hạch lái xe</th>
+              <th style="width:150px;">Số lượng / Hạng xe</th>
+              <th style="width:65px;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      scheduleRows.forEach((r, idx) => {
+        // Hiển thị nhãn phân tích tự động bên dưới ô CSĐT để người dùng kiểm tra trực quan
+        const allocated = allocateRowCsdts(r, noQtyRule);
+        const pillsHtml = allocated.map(item => {
+          if (item.status === 'SKIP') {
+            return `<span class="pill skip" title="Đang chọn chế độ bỏ qua CSĐT không ghi số riêng">${escapeHtml(item.name)} (Bỏ qua)</span>`;
+          } else if (item.status === 'AUTO_CALC') {
+            return `<span class="pill auto" title="Số lượng được tính tự động từ tổng đợt sát hạch">✓ ${escapeHtml(item.name)} → <b>${escapeHtml(item.val)}</b></span>`;
+          } else if (item.status === 'SHARED') {
+            return `<span class="pill shared" title="Cùng tham gia đợt sát hạch, không cộng trùng số lượng">🔗 ${escapeHtml(item.name)} → <b>${escapeHtml(item.val)}</b></span>`;
+          } else {
+            return `<span class="pill">✓ ${escapeHtml(item.name)} → <b>${escapeHtml(item.val)}</b></span>`;
+          }
+        }).join('');
+
+        const dualDateNote = (r.ngayDuKien && r.ngayChuyen && r.ngayDuKien !== r.ngayChuyen)
+          ? `<div style="font-size:11px; color:var(--text-muted); font-weight:normal; margin-top:2px;">(Dự kiến: ${escapeHtml(r.ngayDuKien)} → Chuyển: ${escapeHtml(r.ngayChuyen)})</div>`
+          : '';
+
+        html += `
+          <tr>
+            <td style="text-align:center; font-weight:bold;">
+              <div class="cell-editable" contenteditable="true" onblur="updateRowField(${idx}, 'stt', this.innerText)">${escapeHtml(String(r.stt ?? ''))}</div>
+            </td>
+            <td style="text-align:center; font-weight:bold;">
+              <div class="cell-editable" contenteditable="true" onblur="updateRowField(${idx}, 'ngay', this.innerText)">${escapeHtml(r.ngay)}</div>
+              ${dualDateNote}
+            </td>
+            <td style="font-size:15px; font-weight:bold;">
+              <div class="cell-editable" contenteditable="true" onblur="updateRowField(${idx}, 'csdt', this.innerText)">${escapeHtml(r.csdt)}</div>
+              <div class="parsed-preview-pills">${pillsHtml}</div>
+            </td>
+            <td style="font-size:15px; font-weight:bold;">
+              <div class="cell-editable" contenteditable="true" onblur="updateRowField(${idx}, 'ttsh', this.innerText)">${escapeHtml(r.ttsh)}</div>
+            </td>
+            <td style="font-weight:bold;">
+              <div class="cell-editable" contenteditable="true" onblur="updateRowField(${idx}, 'soLuongHang', this.innerText)">${escapeHtml(r.soLuongHang)}</div>
+            </td>
+            <td style="text-align:center;">
+              <button class="btn btn-outline btn-sm" style="color:var(--danger); padding:3px 7px;" title="Xóa dòng này" onclick="deleteScheduleRow(${idx})">🗑️</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+      container.innerHTML = html;
+    }
+
+    function updateRowField(idx, field, val) {
+      if (!scheduleRows[idx]) return;
+      const cleanVal = (val || '').replace(/\r/g, '').trim();
+      if (scheduleRows[idx][field] !== cleanVal) {
+        scheduleRows[idx][field] = cleanVal;
+        recalculateAll();
+      }
+    }
+
+    function deleteScheduleRow(idx) {
+      scheduleRows.splice(idx, 1);
+      recalculateAll();
+    }
+
+    function addScheduleRow() {
+      const nextStt = scheduleRows.length + 1;
+      const defaultDate = scheduleRows.length ? scheduleRows[scheduleRows.length - 1].ngay : '01/02/2026';
+      scheduleRows.push({
+        stt: nextStt,
+        ngay: defaultDate,
+        csdt: 'Trung tâm GDNN ...',
+        ttsh: 'Trung tâm sát hạch lái xe Củ Chi',
+        khuVuc: 'TT',
+        soLuongHang: '790B, C1'
+      });
+      recalculateAll();
+    }
+
+    function renumberStt() {
+      scheduleRows.forEach((r, idx) => { r.stt = idx + 1; });
+      recalculateAll();
+    }
+
+    function renderTab2() {
+      const container = document.getElementById('tab2Content');
+      if (!matrix1Data || !matrix1Data.rows.length) return;
+
+      const title = document.getElementById('inpTitle').value;
+      const { ttshCols, rows, dots, sums } = matrix1Data;
+      const totalCols = 3 + ttshCols.length;
+
+      let html = `
+        <table class="excel-table">
+          <thead>
+            <tr>
+              <th colspan="${totalCols}" style="font-size:20px; background:#fff; padding:10px;">${escapeHtml(title)}</th>
+            </tr>
+            <tr>
+              <th rowspan="2" style="width:50px;">STT</th>
+              <th rowspan="2" style="width:110px;">Ngày sát hạch</th>
+              <th rowspan="2" style="min-width:280px;">CSĐT</th>
+              <th colspan="${ttshCols.length}">Trung tâm sát hạch lái xe</th>
+            </tr>
+            <tr>
+              ${ttshCols.map((t, i) => `<th style="min-width:115px;">${escapeHtml(`${i + 1}.${shortTtshName(t)}`)}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="row-summary-top">
+              <td colspan="3">TỔNG ĐỢT SÁT HẠCH</td>
+              ${dots.map(d => `<td>${d}</td>`).join('')}
+            </tr>
+      `;
+
+      rows.forEach((r, idx) => {
+        html += `
+          <tr>
+            <td style="text-align:center;">${idx + 1}</td>
+            <td style="text-align:center;">${escapeHtml(r.ngay)}</td>
+            <td style="font-weight:500;">${escapeHtml(r.csdt)}</td>
+            ${ttshCols.map((t, cIdx) => {
+              const v = r.cells[t] !== undefined ? r.cells[t] : '';
+              return `<td style="text-align:center;"><div class="cell-editable" contenteditable="true" onblur="updateMatrix1Cell(${idx}, ${cIdx}, this.innerText)">${escapeHtml(String(v))}</div></td>`;
+            }).join('')}
+          </tr>
+        `;
+      });
+
+      html += `
+            <tr class="row-summary-bottom">
+              <td colspan="3">TỔNG SỐ LƯỢNG DỰ THI (DỰ KIẾN)</td>
+              ${sums.map(s => `<td>${s}</td>`).join('')}
+            </tr>
+          </tbody>
+        </table>
+      `;
+      container.innerHTML = html;
+    }
+
+    function updateMatrix1Cell(rowIdx, colIdx, newVal) {
+      if (!matrix1Data || !matrix1Data.rows[rowIdx]) return;
+      const t = matrix1Data.ttshCols[colIdx];
+      const clean = (newVal || '').trim();
+      if (clean) {
+        matrix1Data.rows[rowIdx].cells[t] = clean;
+      } else {
+        delete matrix1Data.rows[rowIdx].cells[t];
+      }
+      // Tính lại tổng đợt và tổng số lượng cho Sheet 2
+      matrix1Data.dots = matrix1Data.ttshCols.map(col => {
+        return new Set(matrix1Data.rows.filter(r => r.cells[col] !== undefined && r.cells[col] !== '').map(r => r.ngay)).size;
+      });
+      matrix1Data.sums = matrix1Data.ttshCols.map(col => {
+        return matrix1Data.rows.reduce((acc, r) => acc + extractLeadingNumber(r.cells[col]), 0);
+      });
+      renderTab2();
+    }
+
+    function renderTab3() {
+      const container = document.getElementById('tab3Content');
+      if (!matrix2Data || !matrix2Data.rows.length) return;
+
+      const title = document.getElementById('inpTitle').value;
+      const { csdtCols, rows, dots, sums } = matrix2Data;
+      const totalCols = 3 + csdtCols.length;
+
+      let html = `
+        <table class="excel-table">
+          <thead>
+            <tr>
+              <th colspan="${totalCols}" style="font-size:18px; background:#fff; padding:10px; text-align:left;">${escapeHtml(title)}</th>
+            </tr>
+            <tr>
+              <th rowspan="2" style="width:50px;">STT</th>
+              <th rowspan="2" style="width:110px;">Ngày sát hạch</th>
+              <th rowspan="2" style="min-width:240px;">Trung tâm sát hạch lái xe</th>
+              <th colspan="${csdtCols.length}">CSĐT (${csdtCols.length})</th>
+            </tr>
+            <tr>
+              ${csdtCols.map((c, i) => `<th style="min-width:130px;">${escapeHtml(`${i + 1}.${c}`)}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="row-summary-top">
+              <td colspan="3">TỔNG ĐỢT SÁT HẠCH</td>
+              ${dots.map(d => `<td>${d}</td>`).join('')}
+            </tr>
+      `;
+
+      rows.forEach((r, idx) => {
+        html += `
+          <tr>
+            <td style="text-align:center;">${idx + 1}</td>
+            <td style="text-align:center;">${escapeHtml(r.ngay)}</td>
+            <td>${escapeHtml(r.ttsh)}</td>
+            ${csdtCols.map(c => {
+              const v = r.cells[c] !== undefined ? r.cells[c] : '';
+              return `<td style="text-align:center;">${escapeHtml(String(v))}</td>`;
+            }).join('')}
+          </tr>
+        `;
+      });
+
+      html += `
+            <tr class="row-summary-bottom">
+              <td colspan="3">TỔNG SỐ LƯỢNG DỰ THI (DỰ KIẾN)</td>
+              ${sums.map(s => `<td>${s}</td>`).join('')}
+            </tr>
+          </tbody>
+        </table>
+      `;
+      container.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+      return (str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // =========================================================================
+    // XUẤT FILE EXCEL (.XLSX) CHUẨN ĐỊNH DẠNG MẪU DS SÁT HẠCH T2.2026 & T3.2026
+    // =========================================================================
+    function colNumberToName(colNum) {
+      let name = '';
+      let n = colNum;
+      while (n > 0) {
+        let rem = (n - 1) % 26;
+        name = String.fromCharCode(65 + rem) + name;
+        n = Math.floor((n - 1) / 26);
+      }
+      return name;
+    }
+
+    function parseDdMmYyyyToUtcDate(ddmmyyyy) {
+      const m = (ddmmyyyy || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (!m) return ddmmyyyy;
+      const day = parseInt(m[1], 10);
+      const month = parseInt(m[2], 10) - 1;
+      const year = parseInt(m[3], 10);
+      return new Date(Date.UTC(year, month, day));
+    }
+
+    function formatCellValue(val) {
+      if (val === undefined || val === null || val === '') return null;
+      const s = String(val).trim();
+      if (/^\d+$/.test(s)) return parseInt(s, 10);
+      return s;
+    }
+
+    async function exportToExcel() {
+      if (!scheduleRows.length || !matrix1Data || !matrix2Data) return;
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Phần mềm Xuất Lịch Sát Hạch';
+      wb.created = new Date();
+
+      const thinBorder = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      const sheet1Name = (document.getElementById('inpSheet1Name').value || 'Hạng B,C').trim();
+      const titleText = (document.getElementById('inpTitle').value || 'DANH SÁCH SÁT HẠCH').trim();
+
+      // -----------------------------------------------------------------------
+      // 1. TẠO SHEET 1: Hạng B,C
+      // -----------------------------------------------------------------------
+      const ws1 = wb.addWorksheet(sheet1Name);
+      ws1.columns = [
+        { width: 6 },
+        { width: 15 },
+        { width: 66.5 },
+        { width: 68 },
+        { width: 18 }
+      ];
+
+      const hRow1 = ws1.addRow(['Số TT', 'Ngày sát hạch', 'Cơ sở đào tạo', 'Trung tâm sát hạch lái xe', 'Số lượng / Hạng xe']);
+      hRow1.height = 31.5;
+      hRow1.eachCell((cell) => {
+        cell.font = { name: 'Times New Roman', size: 12, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = thinBorder;
+      });
+
+      scheduleRows.forEach((r) => {
+        const sttVal = r.stt !== '' && !isNaN(r.stt) ? Number(r.stt) : (r.stt || null);
+        const dateVal = parseDdMmYyyyToUtcDate(r.ngay);
+        const row = ws1.addRow([sttVal, dateVal, r.csdt, r.ttsh, r.soLuongHang]);
+
+        const lineCount = (r.csdt || '').split(/\r?\n/).length;
+        row.height = Math.max(40.5, lineCount * 21);
+
+        row.getCell(1).font = { name: 'Times New Roman', size: 11, bold: true };
+        row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        row.getCell(1).border = thinBorder;
+
+        row.getCell(2).font = { name: 'Times New Roman', size: 11, bold: true };
+        row.getCell(2).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        row.getCell(2).numFmt = 'dd/mm/yyyy';
+        row.getCell(2).border = thinBorder;
+
+        row.getCell(3).font = { name: 'Times New Roman', size: 16, bold: true };
+        row.getCell(3).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        row.getCell(3).border = thinBorder;
+
+        row.getCell(4).font = { name: 'Times New Roman', size: 16, bold: true };
+        row.getCell(4).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        row.getCell(4).border = thinBorder;
+
+        row.getCell(5).font = { name: 'Times New Roman', size: 11, bold: true };
+        row.getCell(5).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        row.getCell(5).border = thinBorder;
+      });
+
+      // -----------------------------------------------------------------------
+      // 2. TẠO SHEET 2: TONG_HOP_MAU_MOI
+      // -----------------------------------------------------------------------
+      const ws2 = wb.addWorksheet('TONG_HOP_MAU_MOI');
+      const { ttshCols, rows: rows1, dots: dots1, sums: sums1 } = matrix1Data;
+      const totalCols2 = 3 + ttshCols.length;
+      const lastColLetter2 = colNumberToName(totalCols2);
+
+      const cols2 = [
+        { width: 7 },
+        { width: 15 },
+        { width: 45 }
+      ];
+      ttshCols.forEach((t) => {
+        const sh = shortTtshName(t);
+        cols2.push({ width: sh.length > 20 ? 16.5 : 13 });
+      });
+      ws2.columns = cols2;
+
+      // Dòng 1: Tiêu đề lớn
+      const s2r1 = ws2.addRow([titleText]);
+      s2r1.height = 30;
+      ws2.mergeCells(`A1:${lastColLetter2}1`);
+      s2r1.getCell(1).font = { name: 'Times New Roman', size: 24, bold: true };
+      s2r1.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Dòng 2 & 3: Tiêu đề cột
+      const s2r2Vals = ['STT', 'Ngày sát hạch', 'CSĐT', 'Trung tâm sát hạch lái xe'];
+      while (s2r2Vals.length < totalCols2) s2r2Vals.push('');
+      const s2r2 = ws2.addRow(s2r2Vals);
+      s2r2.height = 41;
+
+      const s2r3Vals = ['', '', '', ...ttshCols.map((t, i) => `${i + 1}.${shortTtshName(t)}`)];
+      const s2r3 = ws2.addRow(s2r3Vals);
+      s2r3.height = 134.4;
+
+      ws2.mergeCells('A2:A3');
+      ws2.mergeCells('B2:B3');
+      ws2.mergeCells('C2:C3');
+      if (totalCols2 > 4) {
+        ws2.mergeCells(`D2:${lastColLetter2}2`);
+      }
+
+      for (let r = 2; r <= 3; r++) {
+        const row = ws2.getRow(r);
+        for (let c = 1; c <= totalCols2; c++) {
+          const cell = row.getCell(c);
+          cell.font = { name: 'Times New Roman', size: 13, bold: true };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          cell.border = thinBorder;
+        }
+      }
+
+      // Dòng 4: TỔNG ĐỢT SÁT HẠCH
+      const lastDataRow2 = Math.max(5, 4 + rows1.length);
+      const s2r4Vals = ['TỔNG ĐỢT SÁT HẠCH', '', ''];
+      ttshCols.forEach((_, idx) => {
+        const colLet = colNumberToName(4 + idx);
+        s2r4Vals.push({
+          formula: `SUM(--(FREQUENCY(IF(${colLet}$5:${colLet}$${lastDataRow2}<>"",MATCH($B$5:$B$${lastDataRow2},$B$5:$B$${lastDataRow2},0)),ROW($B$5:$B$${lastDataRow2})-ROW($B$5)+1)>0))`,
+          result: dots1[idx],
+          shareType: 'array',
+          ref: `${colLet}4`
+        });
+      });
+      const s2r4 = ws2.addRow(s2r4Vals);
+      s2r4.height = 34.5;
+      ws2.mergeCells('A4:C4');
+      for (let c = 1; c <= totalCols2; c++) {
+        const cell = s2r4.getCell(c);
+        cell.font = { name: 'Times New Roman', size: 13, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = thinBorder;
+      }
+
+      // Dòng dữ liệu 5..lastDataRow2
+      rows1.forEach((r, idx) => {
+        const rowVals = [
+          idx + 1,
+          r.ngay,
+          r.csdt,
+          ...ttshCols.map(t => formatCellValue(r.cells[t]))
+        ];
+        const row = ws2.addRow(rowVals);
+        row.height = 52;
+        for (let c = 1; c <= totalCols2; c++) {
+          const cell = row.getCell(c);
+          cell.font = { name: 'Times New Roman', size: 13, bold: false };
+          cell.alignment = {
+            horizontal: c <= 2 ? 'center' : 'left',
+            vertical: 'middle',
+            wrapText: true
+          };
+          cell.border = thinBorder;
+        }
+      });
+
+      // Dòng cuối: TỔNG SỐ LƯỢNG DỰ THI (DỰ KIẾN)
+      const s2LastVals = ['TỔNG SỐ LƯỢNG DỰ THI (DỰ KIẾN)', '', '', ...sums1];
+      const s2Last = ws2.addRow(s2LastVals);
+      s2Last.height = 43.2;
+      ws2.mergeCells(`A${lastDataRow2 + 1}:C${lastDataRow2 + 1}`);
+      for (let c = 1; c <= totalCols2; c++) {
+        const cell = s2Last.getCell(c);
+        cell.font = { name: 'Times New Roman', size: 13, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = thinBorder;
+      }
+
+      // -----------------------------------------------------------------------
+      // 3. TẠO SHEET 3: TONG_HOP_MAU_MOI_2
+      // -----------------------------------------------------------------------
+      const ws3 = wb.addWorksheet('TONG_HOP_MAU_MOI_2');
+      const { csdtCols, rows: rows2, dots: dots2, sums: sums2 } = matrix2Data;
+      const totalCols3 = 3 + csdtCols.length;
+      const lastColLetter3 = colNumberToName(totalCols3);
+
+      const cols3 = [
+        { width: 6 },
+        { width: 14 },
+        { width: 28 }
+      ];
+      csdtCols.forEach(() => cols3.push({ width: 18 }));
+      ws3.columns = cols3;
+
+      // Dòng 1: Tiêu đề
+      const s3r1 = ws3.addRow([titleText]);
+      s3r1.height = 24;
+      if (totalCols3 >= 4) {
+        ws3.mergeCells(`A1:${lastColLetter3}1`);
+      }
+      s3r1.getCell(1).font = { name: 'Times New Roman', size: 16, bold: true };
+      s3r1.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+
+      // Dòng 2 & 3: Tiêu đề cột
+      const s3r2Vals = ['STT', 'Ngày sát hạch', 'Trung tâm sát hạch lái xe', 'CSĐT'];
+      while (s3r2Vals.length < totalCols3) s3r2Vals.push('');
+      const s3r2 = ws3.addRow(s3r2Vals);
+      s3r2.height = 22;
+
+      const s3r3Vals = ['', '', '', ...csdtCols.map((c, i) => `${i + 1}.${c}`)];
+      const s3r3 = ws3.addRow(s3r3Vals);
+      s3r3.height = 67.2;
+
+      ws3.mergeCells('A2:A3');
+      ws3.mergeCells('B2:B3');
+      ws3.mergeCells('C2:C3');
+      if (totalCols3 > 4) {
+        ws3.mergeCells(`D2:${lastColLetter3}2`);
+      }
+
+      for (let r = 2; r <= 3; r++) {
+        const row = ws3.getRow(r);
+        for (let c = 1; c <= totalCols3; c++) {
+          const cell = row.getCell(c);
+          cell.font = { name: 'Times New Roman', size: 13, bold: true };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          cell.border = thinBorder;
+        }
+      }
+
+      // Dòng 4: TỔNG ĐỢT SÁT HẠCH
+      const lastDataRow3 = Math.max(5, 4 + rows2.length);
+      const s3r4Vals = ['TỔNG ĐỢT SÁT HẠCH', '', ''];
+      csdtCols.forEach((_, idx) => {
+        const colLet = colNumberToName(4 + idx);
+        s3r4Vals.push({
+          formula: `SUM(--(FREQUENCY(IF(${colLet}$5:${colLet}$${lastDataRow3}<>"",MATCH($B$5:$B$${lastDataRow3},$B$5:$B$${lastDataRow3},0)),ROW($B$5:$B$${lastDataRow3})-ROW($B$5)+1)>0))`,
+          result: dots2[idx],
+          shareType: 'array',
+          ref: `${colLet}4`
+        });
+      });
+      const s3r4 = ws3.addRow(s3r4Vals);
+      s3r4.height = 35;
+      ws3.mergeCells('A4:C4');
+      for (let c = 1; c <= totalCols3; c++) {
+        const cell = s3r4.getCell(c);
+        cell.font = { name: 'Times New Roman', size: 13, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = thinBorder;
+      }
+
+      // Dòng dữ liệu 5..lastDataRow3
+      rows2.forEach((r, idx) => {
+        const rowVals = [
+          idx + 1,
+          r.ngay,
+          r.ttsh,
+          ...csdtCols.map(c => formatCellValue(r.cells[c]))
+        ];
+        const row = ws3.addRow(rowVals);
+        row.height = 35;
+        for (let c = 1; c <= totalCols3; c++) {
+          const cell = row.getCell(c);
+          cell.font = { name: 'Times New Roman', size: 13, bold: false };
+          cell.alignment = {
+            horizontal: c === 3 ? 'left' : 'center',
+            vertical: 'middle',
+            wrapText: true
+          };
+          cell.border = thinBorder;
+        }
+      });
+
+      // Dòng cuối: TỔNG SỐ LƯỢNG DỰ THI (DỰ KIẾN)
+      const s3LastVals = ['TỔNG SỐ LƯỢNG DỰ THI (DỰ KIẾN)', '', '', ...sums2];
+      const s3Last = ws3.addRow(s3LastVals);
+      s3Last.height = 35;
+      ws3.mergeCells(`A${lastDataRow3 + 1}:C${lastDataRow3 + 1}`);
+      for (let c = 1; c <= totalCols3; c++) {
+        const cell = s3Last.getCell(c);
+        cell.font = { name: 'Times New Roman', size: 13, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = thinBorder;
+      }
+
+      // Xuất file tải về trình duyệt
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      let outName = (document.getElementById('inpFileName').value || 'DS SÁT HẠCH.xlsx').trim();
+      if (!outName.toLowerCase().endsWith('.xlsx')) outName += '.xlsx';
+      a.href = url;
+      a.download = outName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function loadPreset(key) {
+      if (!window.PRESET_SCHEDULES || !window.PRESET_SCHEDULES[key]) return;
+      allExtractedPdfRows = JSON.parse(JSON.stringify(window.PRESET_SCHEDULES[key]));
+      const mNum = key.replace(/^t/i, '');
+      const labels = {
+        t2: 'DS SÁT HẠCH T2.2026.xlsx',
+        t3: 'Lịch dự kiến T3-2026.pdf',
+        t4: 'Lịch SH T4.2026.pdf',
+        t5: 'Lịch SH T5.2026.pdf',
+        t6: 'Lịch SH dự kiến T6.2026.pdf',
+        t7: 'Lịch SH dự kiến T7.2026.pdf',
+        t8: 'Điều chỉnh các HĐ trong Tháng 8.pdf',
+        t9: 'Lịch Sát hạch dự kiến T9-2026 (TPHCM).pdf',
+        t10: 'Lịch dự kiến Tháng 10-2026 (3KV).pdf',
+        t11: 'Lịch thi Tháng 11-2026 - dự kiến.pdf'
+      };
+      document.getElementById('fileLoadedLabel').textContent = `Đã nạp: ${labels[key] || key}`;
+      document.getElementById('inpTitle').value = `DANH SÁCH SÁT HẠCH THÁNG ${mNum}`;
+      document.getElementById('inpFileName').value = `DS SÁT HẠCH T${mNum}.2026.xlsx`;
+      applyRawFilters();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.PRESET_SCHEDULES && window.PRESET_SCHEDULES.t4) {
+        loadPreset('t4');
+      } else if (window.PRESET_SCHEDULES && window.PRESET_SCHEDULES.t8) {
+        loadPreset('t8');
+      } else if (window.PRESET_SCHEDULES && window.PRESET_SCHEDULES.t2) {
+        loadPreset('t2');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "phan-mem-xuat-lich-sat-hach",
+  "version": "1.0.0",
+  "description": "Phần mềm xuất lưu lượng sát hạch hàng tháng từ PDF sang Excel",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
