@@ -87,7 +87,6 @@ luuluongsathach/
 │   ├── mammoth.browser.min.js             # Mammoth - đọc file .docx
 │   ├── tesseract.min.js                   # Tesseract - OCR cho PDF scan
 │   └── presets.js                         # Bộ lịch mẫu T2→T11 (tự nạp khi mở app, dùng để thử nhanh)
-└── *.xlsx                                 # Các file lịch sát hạch dùng làm mẫu/dữ liệu tham chiếu
 ```
 
 ## Quy trình sử dụng
@@ -100,6 +99,7 @@ luuluongsathach/
 
 ## Ghi chú
 
-- Dữ liệu đầu vào là các file lịch sát hạch hàng tháng trong thư mục gốc; ứng dụng chỉ đọc và không sửa các file này.
+- Ứng dụng **không đọc file lịch sát hạch nào từ thư mục gốc** — mọi dữ liệu đầu vào đều do người dùng tự nạp lên (kéo thả PDF/Excel/Word) hoặc lấy từ bộ lịch mẫu tích hợp sẵn trong `libs/presets.js`.
 - Không có bước cài đặt dependency nào (`npm install` không cần thiết vì `libs/` đã chứa sẵn bản bundle).
 - Server chỉ phục vụ file tĩnh trong thư mục dự án và chặn truy cập ra ngoài (`path traversal` guard).
+- Repo không chứa file dữ liệu lịch sát hạch (`.xlsx`) nhằm tránh công khai thông tin thực tế. Bộ lịch mẫu trong `libs/presets.js` là dữ liệu đã chuẩn hóa dùng để thử tính năng.

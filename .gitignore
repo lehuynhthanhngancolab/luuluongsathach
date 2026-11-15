@@ -20,3 +20,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Dữ liệu lịch sát hạch thực tế - KHÔNG commit lên repo
+*.xlsx
+*.docx
