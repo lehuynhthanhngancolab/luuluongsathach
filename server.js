@@ -20,7 +20,7 @@ const MIME_TYPES = {
 const server = http.createServer((req, res) => {
   let reqPath = decodeURIComponent(req.url.split('?')[0]);
   if (reqPath === '/' || reqPath === '/index.html') {
-    reqPath = '/Phần mềm Xuất Lịch Sát Hạch.html';
+    reqPath = '/index.html';
   }
   const filePath = path.join(ROOT, reqPath);
   if (!filePath.startsWith(ROOT)) {

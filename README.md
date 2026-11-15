@@ -65,9 +65,13 @@ Sau đó mở trình duyệt tại **http://localhost:8080**
 
 Server tĩnh nằm ở cổng `8080`. Để đổi cổng, sửa hằng `PORT` trong [`server.js`](server.js).
 
-### Cách 3 — Mở trực tiếp file HTML
+### Cách 3 — Bản deploy trên GitHub Pages
 
-Mở [`Phần mềm Xuất Lịch Sát Hạch.html`](Phần%20mềm%20Xuất%20Lịch%20Sát%20Hạch.html) bằng trình duyệt. Tuy nhiên **khuyến nghị dùng Cách 1 hoặc 2** để tránh lỗi CORS khi đọc file cục bộ.
+Ứng dụng đã được deploy tại:
+
+**https://lehuynhthanhngancolab.github.io/luuluongsathach/**
+
+Mỗi khi có commit lên nhánh `main`, GitHub Actions tự động build và publish lại site.
 
 ## Cấu trúc thư mục
 
@@ -75,7 +79,7 @@ Mở [`Phần mềm Xuất Lịch Sát Hạch.html`](Phần%20mềm%20Xuất%20L
 luuluongsathach/
 ├── server.js                              # Static server (Node.js, cổng 8080)
 ├── package.json                           # Metadata + script "start"
-├── Phần mềm Xuất Lịch Sát Hạch.html       # Toàn bộ giao diện + logic xử lý
+├── index.html                             # Toàn bộ giao diện + logic xử lý
 ├── Chạy Phần Mềm.bat                     # Launcher 1-click cho Windows
 ├── libs/                                  # Thư viện vendor (chạy offline, không cần npm install)
 │   ├── pdf.min.js, pdf.worker.min.js      # PDF.js - đọc & render PDF
